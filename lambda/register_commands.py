@@ -1,4 +1,4 @@
-"""Register the three global slash commands with Discord.
+"""Register the global slash commands with Discord.
 
 Run this once (and again whenever command definitions change). Reads secrets
 from the environment so nothing sensitive is hardcoded:
@@ -23,6 +23,11 @@ COMMANDS = [
     {"name": "palworld-start", "description": "Start the Palworld server", "type": 1},
     {"name": "palworld-stop", "description": "Save and stop the Palworld server", "type": 1},
     {"name": "palworld-status", "description": "Show server state and player count", "type": 1},
+    {
+        "name": "palworld-health",
+        "description": "Show server state, players, and persistent data usage",
+        "type": 1,
+    },
 ]
 
 

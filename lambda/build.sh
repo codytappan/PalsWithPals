@@ -9,6 +9,7 @@ rm -rf "$LAMBDA_BUILD_DIR"
 mkdir -p "$LAMBDA_BUILD_DIR"
 
 cp "$LAMBDA_SRC_DIR/lambda_handler.py" "$LAMBDA_BUILD_DIR/"
+cp "$LAMBDA_SRC_DIR/alarm_notifier.py" "$LAMBDA_BUILD_DIR/"
 cp "$LAMBDA_SRC_DIR/requirements.txt" "$LAMBDA_BUILD_DIR/"
 
 # register_commands.py is a local utility, not required at runtime.

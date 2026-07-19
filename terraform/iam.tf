@@ -3,8 +3,9 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  instance_arn = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.palworld.id}"
-  param_arn    = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.player_count_param_name}"
+  instance_arn   = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.palworld.id}"
+  param_arn      = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.player_count_param_name}"
+  data_param_arn = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.data_usage_param_name}"
 }
 
 # ---------------------------------------------------------------------------
@@ -41,7 +42,7 @@ data "aws_iam_policy_document" "ec2_inline" {
   # Read/write the cached player count.
   statement {
     actions   = ["ssm:PutParameter", "ssm:GetParameter"]
-    resources = [local.param_arn]
+    resources = [local.param_arn, local.data_param_arn]
   }
 }
 
@@ -95,7 +96,7 @@ data "aws_iam_policy_document" "lambda_inline" {
 
   statement {
     actions   = ["ssm:GetParameter"]
-    resources = [local.param_arn]
+    resources = [local.param_arn, local.data_param_arn]
   }
 
   statement {
@@ -113,3 +114,39 @@ resource "aws_iam_role_policy" "lambda_inline" {
   role   = aws_iam_role.lambda.id
   policy = data.aws_iam_policy_document.lambda_inline.json
 }
+
+# ---------------------------------------------------------------------------
+# Alarm notifier Lambda role: receive SNS alarm events and post to Discord.
+# ---------------------------------------------------------------------------
+data "aws_iam_policy_document" "alarm_notifier_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "alarm_notifier" {
+  name               = "${var.project_name}-alarm-notifier-role"
+  assume_role_policy = data.aws_iam_policy_document.alarm_notifier_assume.json
+}
+
+data "aws_iam_policy_document" "alarm_notifier_inline" {
+  statement {
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "alarm_notifier_inline" {
+  name   = "${var.project_name}-alarm-notifier-inline"
+  role   = aws_iam_role.alarm_notifier.id
+  policy = data.aws_iam_policy_document.alarm_notifier_inline.json
+}
+

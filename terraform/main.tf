@@ -26,6 +26,7 @@ locals {
     server_name             = var.server_name
     server_description      = var.server_description
     player_count_param_name = var.player_count_param_name
+    data_usage_param_name   = var.data_usage_param_name
     compose_yaml_b64        = base64encode(file("${path.module}/../ec2/compose.yaml"))
     idle_shutdown_sh_b64    = base64encode(file("${path.module}/../ec2/idle-shutdown.sh"))
     start_palworld_sh_b64   = base64encode(file("${path.module}/../ec2/start-palworld.sh"))
@@ -131,6 +132,10 @@ resource "aws_volume_attachment" "data" {
   instance_id = aws_instance.palworld.id
 }
 
+resource "aws_sns_topic" "alarm_notifications" {
+  name = "${var.project_name}-alarm-notifications"
+}
+
 
 # CPU alarm: sustained high CPU is a signal to scale up.
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
@@ -144,6 +149,8 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   threshold           = 85
   alarm_description   = "Sustained CPU >85% - consider scaling up (see README scaling guide)."
   dimensions          = { InstanceId = aws_instance.palworld.id }
+  alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
+  ok_actions          = [aws_sns_topic.alarm_notifications.arn]
 }
 
 # Memory alarm relies on the CloudWatch agent publishing mem_used_percent
@@ -159,4 +166,6 @@ resource "aws_cloudwatch_metric_alarm" "mem_high" {
   threshold           = 90
   alarm_description   = "Sustained memory >90% - consider a higher-RAM instance (see README scaling guide)."
   dimensions          = { InstanceId = aws_instance.palworld.id }
+  alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
+  ok_actions          = [aws_sns_topic.alarm_notifications.arn]
 }

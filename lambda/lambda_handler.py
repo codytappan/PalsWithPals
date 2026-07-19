@@ -5,11 +5,13 @@ three slash commands:
   /palworld-start  -> ec2:StartInstances
   /palworld-stop   -> save the world via SSM, then ec2:StopInstances
   /palworld-status -> instance state + current public IP + cached player count
+  /palworld-health -> status + player count + persistent data usage
 
 Environment variables (set by Terraform):
   DISCORD_PUBLIC_KEY       Discord app public key (hex) for signature checks
   INSTANCE_ID              EC2 instance ID of the game server
   PLAYER_COUNT_PARAM_NAME  SSM Parameter Store name holding the cached count
+  DATA_USAGE_PARAM_NAME    SSM Parameter Store name holding cached data usage
   AWS_REGION_NAME          AWS region
 """
 
@@ -24,6 +26,7 @@ from nacl.exceptions import BadSignatureError
 PUBLIC_KEY = os.environ["DISCORD_PUBLIC_KEY"]
 INSTANCE_ID = os.environ["INSTANCE_ID"]
 PARAM_NAME = os.environ["PLAYER_COUNT_PARAM_NAME"]
+DATA_USAGE_PARAM_NAME = os.environ["DATA_USAGE_PARAM_NAME"]
 REGION = os.environ.get("AWS_REGION_NAME", "us-east-1")
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
 
@@ -103,6 +106,15 @@ def _cached_player_count() -> str:
         return "unknown"
 
 
+def _cached_data_usage_percent() -> str:
+    try:
+        resp = ssm.get_parameter(Name=DATA_USAGE_PARAM_NAME)
+        value = resp["Parameter"]["Value"]
+        return f"{value}%" if value else "unknown"
+    except ssm.exceptions.ParameterNotFound:
+        return "unknown"
+
+
 def _start() -> str:
     state = _instance_state()
     if state == "running":
@@ -136,10 +148,25 @@ def _status() -> str:
     return f"Server state: **running** at `{ip}:8211`. Players online: **{_cached_player_count()}**."
 
 
+def _health() -> str:
+    instance = _instance_details()
+    state = instance["State"]["Name"]
+    usage = _cached_data_usage_percent()
+    if state != "running":
+        return f"Server state: **{state}**. Persistent data usage: **{usage}**."
+    ip = instance.get("PublicIpAddress", "unknown")
+    players = _cached_player_count()
+    return (
+        f"Server state: **running** at `{ip}:8211`. "
+        f"Players online: **{players}**. Persistent data usage: **{usage}**."
+    )
+
+
 COMMANDS = {
     "palworld-start": _start,
     "palworld-stop": _stop,
     "palworld-status": _status,
+    "palworld-health": _health,
 }
 
 

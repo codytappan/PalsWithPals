@@ -24,6 +24,7 @@ API Gateway (HTTP v2) ─────► Lambda (Python 3.12)
                                • /palworld-start  -> ec2:StartInstances
                                • /palworld-stop   -> SSM save, then ec2:StopInstances
                                • /palworld-status -> ec2:DescribeInstances + public IP + cached count
+                               • /palworld-health -> status + players + persistent data usage
         ┌──────────────────────────────────────────────────────────┐
         │  EC2 game VM (Ubuntu, m6i.xlarge default)                 │
         │   • public IP auto-assigned on start                      │
@@ -70,6 +71,8 @@ find each one:
 | `instance_type` | No | EC2 instance type. Default: `m6i.xlarge` (4 vCPU / 16 GB RAM) |
 | `data_volume_size_gb` | No | Persistent world-save volume size in GB. Default: `20` |
 | `root_volume_size_gb` | No | OS root volume size in GB. Default: `30` |
+| `player_count_param_name` | No | SSM parameter for cached online player count. Default: `/palworld/player_count` |
+| `data_usage_param_name` | No | SSM parameter for cached persistent data usage %. Default: `/palworld/data_usage_percent` |
 | `ssh_ingress_cidr` | **Yes** | Your public IP as a `/32`. Run: `curl -s https://checkip.amazonaws.com \| awk '{print $1"/32"}'` |
 | `discord_public_key` | **Yes** | Discord Developer Portal → your app → **General Information** → *Public Key* |
 | `discord_application_id` | **Yes** | Discord Developer Portal → your app → **General Information** → *Application ID* |
@@ -127,7 +130,7 @@ Note the outputs:
    DISCORD_APPLICATION_ID=... DISCORD_BOT_TOKEN=... python3 register_commands.py
    ```
 
-3. Invite the app to your server and use `/palworld-start`, `/palworld-stop`, `/palworld-status`.
+3. Invite the app to your server and use `/palworld-start`, `/palworld-stop`, `/palworld-status`, `/palworld-health`.
 
 ### 5. Connect in-game
 
@@ -138,7 +141,8 @@ connect to the reported `PUBLIC_IP:8211` and enter the server password.
 
 ## Operations
 
-- **Start / stop / status:** use the Discord slash commands, or the AWS console/CLI. `/palworld-status` includes the server's current public IP when it is running and is the easiest way to direct-connect after a restart.
+- **Start / stop / status/health:** use the Discord slash commands, or the AWS console/CLI. `/palworld-status` includes the server's current public IP when it is running, and `/palworld-health` adds persistent data usage so you can judge when to resize storage.
+- **Discord notifications:** when `discord_webhook_url` is set, Discord receives server lifecycle posts (start/stop/idle stop) and CloudWatch alarm transitions (ALARM/OK for CPU/memory alarms).
 - **Auto-shutdown:** the cron idle-watcher (`ec2/idle-shutdown.sh`) polls player count every
   5 minutes and, after `EMPTY_LIMIT` consecutive empty checks (default 6 = 30 min), runs
   `rest-cli save` then stops the instance. Tune `EMPTY_LIMIT` in `/opt/palworld/idle.env`.

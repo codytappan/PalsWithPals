@@ -31,6 +31,7 @@ write_files:
     content: |
       AWS_REGION=${aws_region}
       PLAYER_COUNT_PARAM_NAME=${player_count_param_name}
+      DATA_USAGE_PARAM_NAME=${data_usage_param_name}
       EMPTY_LIMIT=6
 
   # Runtime files copied from the repo at deploy time.
