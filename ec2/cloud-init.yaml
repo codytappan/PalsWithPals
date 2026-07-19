@@ -1,0 +1,70 @@
+#cloud-config
+# Provisions the Palworld game VM: installs Docker + compose, the AWS CLI, and
+# the CloudWatch agent; formats/mounts the persistent data volume; writes the
+# compose file and idle watcher; and enables the container and cron on boot.
+#
+# Terraform renders the ${...} placeholders at apply time.
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - cron
+  - unzip
+
+write_files:
+  # Environment for docker compose (passwords injected by Terraform).
+  - path: /opt/palworld/.env
+    permissions: "0600"
+    content: |
+      SERVER_PASSWORD=${server_password}
+      ADMIN_PASSWORD=${admin_password}
+      TZ=UTC
+
+  # Config consumed by the idle watcher.
+  - path: /opt/palworld/idle.env
+    permissions: "0644"
+    content: |
+      AWS_REGION=${aws_region}
+      PLAYER_COUNT_PARAM_NAME=${player_count_param_name}
+      EMPTY_LIMIT=6
+
+runcmd:
+  # --- Docker install ---
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # --- AWS CLI + CloudWatch agent ---
+  - curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+  - unzip -q /tmp/awscliv2.zip -d /tmp
+  - /tmp/aws/install
+  - curl -fsSL -o /tmp/amazon-cloudwatch-agent.deb https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+  - dpkg -i -E /tmp/amazon-cloudwatch-agent.deb || true
+  - printf '{"metrics":{"append_dimensions":{"InstanceId":"$${aws:InstanceId}"},"metrics_collected":{"mem":{"measurement":["mem_used_percent"]}}}}' > /opt/aws/amazon-cloudwatch-agent/etc/cw.json
+  - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/cw.json || true
+
+  # --- Format & mount the persistent data volume (idempotent) ---
+  - |
+    DEV=/dev/nvme1n1
+    [ -b "$DEV" ] || DEV=/dev/xvdf
+    if ! blkid "$DEV"; then mkfs.ext4 -L palworld "$DEV"; fi
+    mkdir -p /opt/palworld/data
+    grep -q '/opt/palworld/data' /etc/fstab || echo "LABEL=palworld /opt/palworld/data ext4 defaults,nofail 0 2" >> /etc/fstab
+    mount -a
+    mkdir -p /opt/palworld/data/palworld
+
+  # --- Fetch compose + idle watcher from the AMI copy baked by Terraform ---
+  # These files are written below via write_files-style heredocs.
+  - install -m 0755 /opt/palworld/idle-shutdown.sh /opt/palworld/idle-shutdown.sh 2>/dev/null || true
+
+  # --- Start the container ---
+  - cd /opt/palworld && docker compose up -d
+
+  # --- Install the idle-watcher cron (every 5 minutes) ---
+  - echo "*/5 * * * * root /opt/palworld/idle-shutdown.sh >> /var/log/palworld-idle.log 2>&1" > /etc/cron.d/palworld-idle
+  - systemctl restart cron

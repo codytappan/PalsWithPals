@@ -1,0 +1,32 @@
+# Palworld dedicated server, based on the upstream thijsvanloef example:
+# https://github.com/thijsvanloef/palworld-server-docker
+#
+# The REST API (8212) is bound to localhost ONLY so it is never exposed to the
+# internet. The world save lives on the mounted persistent data volume.
+services:
+  palworld:
+    image: thijsvanloef/palworld-server-docker:latest
+    container_name: palworld-server
+    restart: unless-stopped
+    ports:
+      - "8211:8211/udp"   # game
+      - "27015:27015/udp" # steam query
+      - "127.0.0.1:8212:8212" # REST API - localhost only
+    env_file:
+      - .env
+    environment:
+      PLAYERS: "16"
+      SERVER_PASSWORD: "${SERVER_PASSWORD}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+      REST_API_ENABLED: "true"
+      REST_API_PORT: "8212"
+      ENABLE_PLAYER_LOGGING: "true"
+      RCON_ENABLED: "true"
+      UPDATE_ON_BOOT: "true"
+      BACKUP_ENABLED: "true"
+      AUTO_PAUSE_ENABLED: "true"
+      AUTO_PAUSE_TIMEOUT_EST: "180"
+      # DISCORD_WEBHOOK_URL: ""   # optional: set to receive server notifications
+      TZ: "${TZ}"
+    volumes:
+      - /opt/palworld/data/palworld:/palworld/
