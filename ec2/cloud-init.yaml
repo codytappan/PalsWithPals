@@ -20,6 +20,7 @@ write_files:
     content: |
       SERVER_PASSWORD=${server_password}
       ADMIN_PASSWORD=${admin_password}
+      DISCORD_WEBHOOK_URL=${discord_webhook_url}
       TZ=UTC
 
   # Config consumed by the idle watcher.

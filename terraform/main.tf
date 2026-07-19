@@ -28,6 +28,7 @@ locals {
     aws_region              = var.aws_region
     server_password         = var.server_password
     admin_password          = var.admin_password
+    discord_webhook_url     = var.discord_webhook_url
     player_count_param_name = var.player_count_param_name
   })
 }

@@ -43,6 +43,13 @@ variable "discord_application_id" {
   sensitive   = true
 }
 
+variable "discord_webhook_url" {
+  description = "Discord webhook URL for optional server notifications."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "server_password" {
   description = "Palworld server password (players must enter this to join)."
   type        = string

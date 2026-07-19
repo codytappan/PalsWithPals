@@ -61,6 +61,7 @@ cd terraform
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars: set ssh_ingress_cidr, discord_public_key,
 # discord_application_id, server_password, admin_password
+# optional: set discord_webhook_url for server notifications
 ```
 
 ### 2. Package the Lambda dependencies
@@ -129,6 +130,55 @@ Because the instance spends most of its life stopped, compute is the smallest pa
 
 The world is **always saved before the instance stops** — both in the idle watcher and in the
 `/palworld-stop` command.
+
+## Updating game settings
+
+All gameplay tuning lives in the `environment:` block of `ec2/compose.yaml`.
+Changes are picked up by running `terraform apply` (which rebuilds the instance
+user-data), then doing a one-time container restart on the server.
+
+### Workflow
+
+1. Edit `ec2/compose.yaml` — adjust any environment variable values.
+2. Apply infrastructure changes:
+
+   ```bash
+   cd terraform
+   terraform apply
+   ```
+
+   > `terraform apply` updates the EC2 **user-data**, but user-data only runs on
+   > first boot. The *currently running* container still has the old config.
+
+3. Restart the container on the live server to pick up the new values:
+
+   ```bash
+   ssh ubuntu@<ELASTIC_IP>
+   cd /opt/palworld
+
+   # Save the world first
+   docker exec palworld-server rest-cli save
+
+   # Pull the updated compose file from the repo (or edit in place)
+   # then restart
+   docker compose up -d --force-recreate
+   ```
+
+   The container will reload all `environment:` values from compose and `.env`
+   on start-up. The world save is on the persistent EBS volume so nothing is lost.
+
+### Family-friendly settings reference
+
+The settings currently in `ec2/compose.yaml` are tuned for a relaxed, kid-friendly
+experience. Adjust to taste:
+
+| Variable | Default | Current | Effect |
+|---|---|---------|---|
+| `DEATH_PENALTY` | `All` | `None`  | Items/equipment kept on death |
+| `FALL_DAMAGE_RATE` | `1.0` | `0.5`   | Fall damage multiplier |
+
+For the full list of supported variables see the upstream docs:
+https://github.com/thijsvanloef/palworld-server-docker/blob/main/docs/ENV.md
 
 ## Scaling / upgrade guide
 
