@@ -15,6 +15,7 @@ Environment variables (set by Terraform):
 
 import json
 import os
+from urllib import request
 
 import boto3
 from nacl.signing import VerifyKey
@@ -24,6 +25,7 @@ PUBLIC_KEY = os.environ["DISCORD_PUBLIC_KEY"]
 INSTANCE_ID = os.environ["INSTANCE_ID"]
 PARAM_NAME = os.environ["PLAYER_COUNT_PARAM_NAME"]
 REGION = os.environ.get("AWS_REGION_NAME", "us-east-1")
+WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
 
 ec2 = boto3.client("ec2", region_name=REGION)
 ssm = boto3.client("ssm", region_name=REGION)
@@ -69,6 +71,25 @@ def _instance_state() -> str:
     return resp["Reservations"][0]["Instances"][0]["State"]["Name"]
 
 
+def _notify_webhook(message: str) -> None:
+    """Best-effort Discord webhook post; never break command handling."""
+    if not WEBHOOK_URL:
+        return
+    payload = json.dumps({"content": message}).encode("utf-8")
+    req = request.Request(
+        WEBHOOK_URL,
+        data=payload,
+        headers={"Content-Type": "application/json", "User-Agent": "PalsWithPals/1.0"},
+        method="POST",
+    )
+    try:
+        with request.urlopen(req, timeout=10):
+            pass
+    except Exception:
+        # Notification failures should never block start/stop control.
+        pass
+
+
 def _cached_player_count() -> str:
     try:
         resp = ssm.get_parameter(Name=PARAM_NAME)
@@ -82,6 +103,7 @@ def _start() -> str:
     if state == "running":
         return "Server is already running."
     ec2.start_instances(InstanceIds=[INSTANCE_ID])
+    _notify_webhook(":green_circle: Palworld server is **starting**.")
     return "Starting the Palworld server. Give it a couple of minutes to boot and update."
 
 
@@ -96,6 +118,7 @@ def _stop() -> str:
         Parameters={"commands": ["docker exec palworld-server rest-cli save"]},
     )
     ec2.stop_instances(InstanceIds=[INSTANCE_ID])
+    _notify_webhook(":red_circle: Palworld server is **stopping** (world save triggered).")
     return "Saved the world and stopping the server."
 
 

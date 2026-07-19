@@ -124,7 +124,7 @@ Note the outputs:
 
    ```bash
    cd lambda
-   DISCORD_APPLICATION_ID=... DISCORD_BOT_TOKEN=... python register_commands.py
+   DISCORD_APPLICATION_ID=... DISCORD_BOT_TOKEN=... python3 register_commands.py
    ```
 
 3. Invite the app to your server and use `/palworld-start`, `/palworld-stop`, `/palworld-status`.
@@ -148,6 +148,7 @@ Because the instance spends most of its life stopped, compute is the smallest pa
 ## Operations
 
 - **Start / stop / status:** use the Discord slash commands, or the AWS console/CLI.
+- **Discord notifications:** set `discord_webhook_url` in `terraform.tfvars` to receive status-change posts when the server starts, stops, or auto-stops for inactivity.
 - **Auto-shutdown:** the cron idle-watcher (`ec2/idle-shutdown.sh`) polls player count every
   5 minutes and, after `EMPTY_LIMIT` consecutive empty checks (default 6 = 30 min), runs
   `rest-cli save` then stops the instance. Tune `EMPTY_LIMIT` in `/opt/palworld/idle.env`.

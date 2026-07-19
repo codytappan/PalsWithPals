@@ -23,6 +23,7 @@ resource "aws_lambda_function" "interactions" {
       INSTANCE_ID             = aws_instance.palworld.id
       PLAYER_COUNT_PARAM_NAME = var.player_count_param_name
       AWS_REGION_NAME         = var.aws_region
+      DISCORD_WEBHOOK_URL     = var.discord_webhook_url
     }
   }
 }

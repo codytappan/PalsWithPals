@@ -12,6 +12,15 @@ cp "$LAMBDA_SRC_DIR/lambda_handler.py" "$LAMBDA_BUILD_DIR/"
 cp "$LAMBDA_SRC_DIR/requirements.txt" "$LAMBDA_BUILD_DIR/"
 
 # register_commands.py is a local utility, not required at runtime.
-python3 -m pip install -r "$LAMBDA_SRC_DIR/requirements.txt" -t "$LAMBDA_BUILD_DIR"
+# Build dependencies for the Lambda runtime (Python 3.12 on Linux x86_64),
+# not the local interpreter ABI.
+python3 -m pip install \
+  --upgrade \
+  --only-binary=:all: \
+  --platform manylinux2014_x86_64 \
+  --implementation cp \
+  --python-version 3.12 \
+  -r "$LAMBDA_SRC_DIR/requirements.txt" \
+  -t "$LAMBDA_BUILD_DIR"
 
 echo "Lambda package directory ready: $LAMBDA_BUILD_DIR"
