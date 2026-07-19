@@ -13,6 +13,9 @@ ssh_ingress_cidr       = "1.2.3.4/32"
 discord_public_key     = "REPLACE_ME"
 discord_application_id = "REPLACE_ME"
 
+# Optional: webhook for server status notifications.
+discord_webhook_url    = ""
+
 # Game passwords.
 server_password        = "REPLACE_ME"
 admin_password         = "REPLACE_ME"

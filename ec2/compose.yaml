@@ -15,9 +15,11 @@ services:
     env_file:
       - .env
     environment:
-      PLAYERS: "16"
+      PLAYERS: "6"
       SERVER_PASSWORD: "${SERVER_PASSWORD}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+      FALL_DAMAGE_RATE: "0.500000"
+      DEATH_PENALTY: "None"
       REST_API_ENABLED: "true"
       REST_API_PORT: "8212"
       ENABLE_PLAYER_LOGGING: "true"
@@ -26,7 +28,7 @@ services:
       BACKUP_ENABLED: "true"
       AUTO_PAUSE_ENABLED: "true"
       AUTO_PAUSE_TIMEOUT_EST: "180"
-      # DISCORD_WEBHOOK_URL: ""   # optional: set to receive server notifications
+      DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL}"
       TZ: "${TZ}"
     volumes:
       - /opt/palworld/data/palworld:/palworld/
