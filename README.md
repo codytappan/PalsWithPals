@@ -23,10 +23,10 @@ API Gateway (HTTP v2) ─────► Lambda (Python 3.12)
                                • PING (type 1) -> PONG
                                • /palworld-start  -> ec2:StartInstances
                                • /palworld-stop   -> SSM save, then ec2:StopInstances
-                               • /palworld-status -> ec2:DescribeInstances + cached count
+                               • /palworld-status -> ec2:DescribeInstances + public IP + cached count
         ┌──────────────────────────────────────────────────────────┐
         │  EC2 game VM (Ubuntu, m6i.xlarge default)                 │
-        │   • Elastic IP (stable connect address)                   │
+        │   • public IP auto-assigned on start                      │
         │   • Docker + compose: palworld-server-docker:latest       │
         │   • REST API 8212 bound to localhost only                 │
         │   • persistent EBS data volume -> /palworld world save     │
@@ -40,7 +40,7 @@ API Gateway (HTTP v2) ─────► Lambda (Python 3.12)
 
 | Path | Purpose |
 |------|---------|
-| `terraform/` | All AWS infrastructure (EC2, EBS, EIP, IAM, Lambda, API Gateway, alarms). |
+| `terraform/` | All AWS infrastructure (EC2, EBS, IAM, Lambda, API Gateway, alarms). |
 | `lambda/` | Discord interactions handler + slash-command registration script. |
 | `ec2/` | Cloud-init, compose file, idle-shutdown watcher, and resize helper. |
 
@@ -111,7 +111,7 @@ terraform apply
 
 Note the outputs:
 
-- `elastic_ip` — the address players connect to (UDP 8211).
+- `public_ip` — the server's public IP right after `terraform apply`. After later stop/start cycles, use `/palworld-status` for the current IP.
 - `instance_id` — the game server instance.
 - `interactions_endpoint_url` — paste into Discord next.
 
@@ -131,8 +131,8 @@ Note the outputs:
 
 ### 5. Connect in-game
 
-In Palworld → **Join Multiplayer (Dedicated)** → connect to `ELASTIC_IP:8211` and enter the
-server password.
+In Palworld → **Join Multiplayer (Dedicated)** → run `/palworld-status` in Discord, then
+connect to the reported `PUBLIC_IP:8211` and enter the server password.
 
 ## Cost summary
 
@@ -140,14 +140,13 @@ You are billed for **compute only while the instance is running** — the idle w
 after the world is empty. The always-on costs are small:
 
 - **EBS volumes** (root + persistent data) — billed per GB-month whether running or stopped.
-- **Elastic IPv4 address** — AWS now charges hourly for allocated public IPv4.
 - **Lambda / API Gateway / SSM Parameter Store** — effectively free at this volume.
 
 Because the instance spends most of its life stopped, compute is the smallest part of the bill.
 
 ## Operations
 
-- **Start / stop / status:** use the Discord slash commands, or the AWS console/CLI.
+- **Start / stop / status:** use the Discord slash commands, or the AWS console/CLI. `/palworld-status` includes the server's current public IP when it is running and is the easiest way to direct-connect after a restart.
 - **Discord notifications:** set `discord_webhook_url` in `terraform.tfvars` to receive status-change posts when the server starts, stops, or auto-stops for inactivity.
 - **Auto-shutdown:** the cron idle-watcher (`ec2/idle-shutdown.sh`) polls player count every
   5 minutes and, after `EMPTY_LIMIT` consecutive empty checks (default 6 = 30 min), runs
@@ -182,7 +181,8 @@ user-data), then doing a one-time container restart on the server.
 3. Restart the container on the live server to pick up the new values:
 
    ```bash
-   ssh ubuntu@<ELASTIC_IP>
+   # Use the IP reported by /palworld-status
+   ssh ubuntu@<PUBLIC_IP>
    cd /opt/palworld
 
    # Save the world first

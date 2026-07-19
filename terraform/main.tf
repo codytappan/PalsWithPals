@@ -1,5 +1,5 @@
 # Core infrastructure: networking lookups, security group, EC2 instance,
-# persistent EBS data volume, Elastic IP, and CloudWatch alarms.
+# persistent EBS data volume, and CloudWatch alarms.
 
 data "aws_vpc" "default" {
   default = true
@@ -28,6 +28,7 @@ locals {
     player_count_param_name = var.player_count_param_name
     compose_yaml_b64        = base64encode(file("${path.module}/../ec2/compose.yaml"))
     idle_shutdown_sh_b64    = base64encode(file("${path.module}/../ec2/idle-shutdown.sh"))
+    start_palworld_sh_b64   = base64encode(file("${path.module}/../ec2/start-palworld.sh"))
   })
 }
 
@@ -75,17 +76,24 @@ resource "aws_security_group" "palworld" {
 }
 
 resource "aws_instance" "palworld" {
-  ami                    = data.aws_ssm_parameter.ubuntu.value
-  instance_type          = var.instance_type
-  subnet_id              = data.aws_subnet.selected.id
-  vpc_security_group_ids = [aws_security_group.palworld.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2.name
-  user_data              = local.user_data
+  ami                         = data.aws_ssm_parameter.ubuntu.value
+  instance_type               = var.instance_type
+  subnet_id                   = data.aws_subnet.selected.id
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.palworld.id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2.name
+  user_data                   = local.user_data
+  user_data_replace_on_change = true
 
   # Use spot pricing (~44% cheaper). World save is on persistent EBS so
   # interruptions are safe — players get kicked and can reconnect after restart.
   instance_market_options {
     market_type = "spot"
+
+    spot_options {
+      spot_instance_type             = "persistent"
+      instance_interruption_behavior = "stop"
+    }
   }
 
   # Enforce IMDSv2.
@@ -123,11 +131,6 @@ resource "aws_volume_attachment" "data" {
   instance_id = aws_instance.palworld.id
 }
 
-resource "aws_eip" "palworld" {
-  instance = aws_instance.palworld.id
-  domain   = "vpc"
-  tags     = { Name = "${var.project_name}-eip" }
-}
 
 # CPU alarm: sustained high CPU is a signal to scale up.
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {

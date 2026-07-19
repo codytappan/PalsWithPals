@@ -4,7 +4,7 @@ Verifies Ed25519 request signatures, answers Discord's PING, and implements
 three slash commands:
   /palworld-start  -> ec2:StartInstances
   /palworld-stop   -> save the world via SSM, then ec2:StopInstances
-  /palworld-status -> instance state + cached player count (fast, no round-trip)
+  /palworld-status -> instance state + current public IP + cached player count
 
 Environment variables (set by Terraform):
   DISCORD_PUBLIC_KEY       Discord app public key (hex) for signature checks
@@ -71,6 +71,11 @@ def _instance_state() -> str:
     return resp["Reservations"][0]["Instances"][0]["State"]["Name"]
 
 
+def _instance_details() -> dict:
+    resp = ec2.describe_instances(InstanceIds=[INSTANCE_ID])
+    return resp["Reservations"][0]["Instances"][0]
+
+
 def _notify_webhook(message: str) -> None:
     """Best-effort Discord webhook post; never break command handling."""
     if not WEBHOOK_URL:
@@ -123,10 +128,12 @@ def _stop() -> str:
 
 
 def _status() -> str:
-    state = _instance_state()
+    instance = _instance_details()
+    state = instance["State"]["Name"]
     if state != "running":
         return f"Server state: **{state}**."
-    return f"Server state: **running**. Players online: **{_cached_player_count()}**."
+    ip = instance.get("PublicIpAddress", "unknown")
+    return f"Server state: **running** at `{ip}:8211`. Players online: **{_cached_player_count()}**."
 
 
 COMMANDS = {
