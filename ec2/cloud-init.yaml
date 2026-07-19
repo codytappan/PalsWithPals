@@ -3,7 +3,7 @@
 # the CloudWatch agent; formats/mounts the persistent data volume; writes the
 # compose file and idle watcher; and enables the container and cron on boot.
 #
-# Terraform renders the ${...} placeholders at apply time.
+# Terraform renders the $${...} placeholders at apply time.
 
 package_update: true
 packages:
@@ -21,6 +21,8 @@ write_files:
       SERVER_PASSWORD=${server_password}
       ADMIN_PASSWORD=${admin_password}
       DISCORD_WEBHOOK_URL=${discord_webhook_url}
+      SERVER_NAME=${server_name}
+      SERVER_DESCRIPTION=${server_description}
       TZ=UTC
 
   # Config consumed by the idle watcher.
@@ -30,6 +32,19 @@ write_files:
       AWS_REGION=${aws_region}
       PLAYER_COUNT_PARAM_NAME=${player_count_param_name}
       EMPTY_LIMIT=6
+
+  # Runtime files copied from the repo at deploy time.
+  - path: /opt/palworld/compose.yaml
+    permissions: "0644"
+    encoding: b64
+    content: |
+      ${compose_yaml_b64}
+
+  - path: /opt/palworld/idle-shutdown.sh
+    permissions: "0755"
+    encoding: b64
+    content: |
+      ${idle_shutdown_sh_b64}
 
 runcmd:
   # --- Docker install ---
@@ -59,11 +74,20 @@ runcmd:
     mount -a
     mkdir -p /opt/palworld/data/palworld
 
-  # --- Fetch compose + idle watcher from the AMI copy baked by Terraform ---
-  # These files are written below via write_files-style heredocs.
+  # --- Ensure watcher is executable ---
   - install -m 0755 /opt/palworld/idle-shutdown.sh /opt/palworld/idle-shutdown.sh 2>/dev/null || true
 
   # --- Start the container ---
+  - |
+    TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300" || true)
+    PUBLIC_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 || true)
+    if [ -n "$PUBLIC_IP" ]; then
+      if grep -q '^PUBLIC_IP=' /opt/palworld/.env; then
+        sed -i "s/^PUBLIC_IP=.*/PUBLIC_IP=$PUBLIC_IP/" /opt/palworld/.env
+      else
+        echo "PUBLIC_IP=$PUBLIC_IP" >> /opt/palworld/.env
+      fi
+    fi
   - cd /opt/palworld && docker compose up -d
 
   # --- Install the idle-watcher cron (every 5 minutes) ---

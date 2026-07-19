@@ -50,6 +50,18 @@ variable "discord_webhook_url" {
   default     = ""
 }
 
+variable "server_name" {
+  description = "Name displayed in the Palworld community server list."
+  type        = string
+  default     = "PalsWithPals"
+}
+
+variable "server_description" {
+  description = "Description displayed in the Palworld community server list."
+  type        = string
+  default     = ""
+}
+
 variable "server_password" {
   description = "Palworld server password (players must enter this to join)."
   type        = string

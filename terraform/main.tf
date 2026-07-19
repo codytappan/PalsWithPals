@@ -5,16 +5,10 @@ data "aws_vpc" "default" {
   default = true
 }
 
-# Pick a default subnet in the first available AZ.
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
+# Subnet is pinned to us-west-1b to match the persistent EBS data volume.
+# Changing this would strand the world save on a volume in the wrong AZ.
 data "aws_subnet" "selected" {
-  id = tolist(data.aws_subnets.default.ids)[0]
+  id = "subnet-a05345c7"
 }
 
 # Latest Ubuntu 24.04 LTS AMI via the Canonical SSM public parameter.
@@ -29,7 +23,11 @@ locals {
     server_password         = var.server_password
     admin_password          = var.admin_password
     discord_webhook_url     = var.discord_webhook_url
+    server_name             = var.server_name
+    server_description      = var.server_description
     player_count_param_name = var.player_count_param_name
+    compose_yaml_b64        = base64encode(file("${path.module}/../ec2/compose.yaml"))
+    idle_shutdown_sh_b64    = base64encode(file("${path.module}/../ec2/idle-shutdown.sh"))
   })
 }
 
@@ -84,6 +82,12 @@ resource "aws_instance" "palworld" {
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   user_data              = local.user_data
 
+  # Use spot pricing (~44% cheaper). World save is on persistent EBS so
+  # interruptions are safe — players get kicked and can reconnect after restart.
+  instance_market_options {
+    market_type = "spot"
+  }
+
   # Enforce IMDSv2.
   metadata_options {
     http_tokens   = "required"
@@ -100,11 +104,17 @@ resource "aws_instance" "palworld" {
 
 # Persistent data volume for the world save; survives instance stop/start and
 # instance-type changes so upgrades need no data migration.
+# AZ is pinned to us-west-1b — must match the subnet above.
 resource "aws_ebs_volume" "data" {
-  availability_zone = aws_instance.palworld.availability_zone
+  availability_zone = "us-west-1b"
   size              = var.data_volume_size_gb
   type              = "gp3"
   tags              = { Name = "${var.project_name}-data" }
+
+  lifecycle {
+    # Prevent accidental destruction of the world save volume.
+    prevent_destroy = true
+  }
 }
 
 resource "aws_volume_attachment" "data" {

@@ -13,8 +13,10 @@ override.tf.json
 *_override.tf.json
 .terraform.lock.hcl
 terraform/build/
+build/
 
 # Lambda build artifacts
+
 lambda/*.zip
 lambda/package/
 __pycache__/

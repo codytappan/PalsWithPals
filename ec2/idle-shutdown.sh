@@ -21,12 +21,19 @@ TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
 INSTANCE_ID=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" \
   http://169.254.169.254/latest/meta-data/instance-id)
 
-# Count players. rest-cli players prints one line per player after a header;
-# fall back to 0 if the call fails (e.g. server still booting).
+# Count players from rest-cli JSON output: {"players":[...]}.
 if PLAYERS_RAW=$(docker exec palworld-server rest-cli players 2>/dev/null); then
-  COUNT=$(echo "$PLAYERS_RAW" | grep -c . || true)
-  # Subtract a header line if present.
-  [ "$COUNT" -gt 0 ] && COUNT=$((COUNT - 1))
+  COUNT=$(python3 - <<'PY' "$PLAYERS_RAW"
+import json
+import sys
+try:
+    payload = json.loads(sys.argv[1])
+    players = payload.get("players", [])
+    print(len(players) if isinstance(players, list) else 0)
+except Exception:
+    print(0)
+PY
+)
 else
   COUNT=0
 fi
@@ -50,6 +57,13 @@ echo "$(date -u +%FT%TZ) players=$COUNT empty=$EMPTY/$EMPTY_LIMIT"
 
 if [ "$EMPTY" -ge "$EMPTY_LIMIT" ]; then
   echo "Idle limit reached - saving world and stopping instance."
+  WEBHOOK_URL=$(grep '^DISCORD_WEBHOOK_URL=' /opt/palworld/.env | cut -d= -f2- || true)
+  if [ -n "$WEBHOOK_URL" ]; then
+    curl -sS -X POST "$WEBHOOK_URL" \
+      -H "Content-Type: application/json" \
+      -d '{"content":":crescent_moon: Palworld server is **auto-stopping** due to inactivity."}' \
+      >/dev/null || true
+  fi
   docker exec palworld-server rest-cli save || true
   aws ec2 stop-instances --region "$AWS_REGION" --instance-ids "$INSTANCE_ID"
 fi
