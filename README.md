@@ -1,7 +1,7 @@
 # PalsWithPals
 
 Cost-optimized, **on-demand** [Palworld](https://palworld.gg/) dedicated server on AWS,
-controlled from **Discord**. The EC2 instance only runs (and bills compute) while people
+controlled from **Discord**. The EC2 instance only runs while people
 are playing; it automatically saves the world and shuts down when empty. The game world
 lives on a **persistent EBS volume**, so restarts and instance-type upgrades never lose data.
 
@@ -131,23 +131,14 @@ Note the outputs:
 
 ### 5. Connect in-game
 
+Look up SengasPalsWithPals server in the community server browser, or direct-connect:
+
 In Palworld → **Join Multiplayer (Dedicated)** → run `/palworld-status` in Discord, then
 connect to the reported `PUBLIC_IP:8211` and enter the server password.
-
-## Cost summary
-
-You are billed for **compute only while the instance is running** — the idle watcher stops it
-after the world is empty. The always-on costs are small:
-
-- **EBS volumes** (root + persistent data) — billed per GB-month whether running or stopped.
-- **Lambda / API Gateway / SSM Parameter Store** — effectively free at this volume.
-
-Because the instance spends most of its life stopped, compute is the smallest part of the bill.
 
 ## Operations
 
 - **Start / stop / status:** use the Discord slash commands, or the AWS console/CLI. `/palworld-status` includes the server's current public IP when it is running and is the easiest way to direct-connect after a restart.
-- **Discord notifications:** set `discord_webhook_url` in `terraform.tfvars` to receive status-change posts when the server starts, stops, or auto-stops for inactivity.
 - **Auto-shutdown:** the cron idle-watcher (`ec2/idle-shutdown.sh`) polls player count every
   5 minutes and, after `EMPTY_LIMIT` consecutive empty checks (default 6 = 30 min), runs
   `rest-cli save` then stops the instance. Tune `EMPTY_LIMIT` in `/opt/palworld/idle.env`.
@@ -207,7 +198,7 @@ experience. Adjust to taste:
 | `FALL_DAMAGE_RATE` | `1.0` | `0.5`   | Fall damage multiplier |
 
 For the full list of supported variables see the upstream docs:
-https://github.com/thijsvanloef/palworld-server-docker/blob/main/docs/ENV.md
+https://palworld-server-docker.loef.dev/getting-started/configuration/game-settings
 
 ## Scaling / upgrade guide
 
