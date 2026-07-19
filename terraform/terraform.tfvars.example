@@ -1,0 +1,18 @@
+# Copy this file to terraform.tfvars and fill in real values.
+# terraform.tfvars is gitignored so your secrets stay out of version control.
+
+aws_region             = "us-east-1"
+instance_type          = "m6i.xlarge"
+data_volume_size_gb    = 20
+root_volume_size_gb    = 30
+
+# Restrict SSH to your own IP address.
+ssh_ingress_cidr       = "1.2.3.4/32"
+
+# From the Discord Developer Portal (General Information tab).
+discord_public_key     = "REPLACE_ME"
+discord_application_id = "REPLACE_ME"
+
+# Game passwords.
+server_password        = "REPLACE_ME"
+admin_password         = "REPLACE_ME"
