@@ -1,0 +1,148 @@
+# Core infrastructure: networking lookups, security group, EC2 instance,
+# persistent EBS data volume, Elastic IP, and CloudWatch alarms.
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+# Pick a default subnet in the first available AZ.
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+data "aws_subnet" "selected" {
+  id = tolist(data.aws_subnets.default.ids)[0]
+}
+
+# Latest Ubuntu 24.04 LTS AMI via the Canonical SSM public parameter.
+data "aws_ssm_parameter" "ubuntu" {
+  name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
+}
+
+# Render the cloud-init user data, injecting deploy-time values.
+locals {
+  user_data = templatefile("${path.module}/../ec2/cloud-init.yaml", {
+    aws_region              = var.aws_region
+    server_password         = var.server_password
+    admin_password          = var.admin_password
+    player_count_param_name = var.player_count_param_name
+  })
+}
+
+resource "aws_security_group" "palworld" {
+  name        = "${var.project_name}-sg"
+  description = "Palworld server access"
+  vpc_id      = data.aws_vpc.default.id
+
+  # Palworld game traffic.
+  ingress {
+    description = "Palworld game port"
+    from_port   = 8211
+    to_port     = 8211
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Steam query port.
+  ingress {
+    description = "Steam query"
+    from_port   = 27015
+    to_port     = 27015
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # SSH restricted to the operator's IP. NOTE: 8212 (REST API) is intentionally
+  # NOT exposed here; it stays bound to localhost on the instance.
+  ingress {
+    description = "SSH (restricted)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.ssh_ingress_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "${var.project_name}-sg" }
+}
+
+resource "aws_instance" "palworld" {
+  ami                    = data.aws_ssm_parameter.ubuntu.value
+  instance_type          = var.instance_type
+  subnet_id              = data.aws_subnet.selected.id
+  vpc_security_group_ids = [aws_security_group.palworld.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2.name
+  user_data              = local.user_data
+
+  # Enforce IMDSv2.
+  metadata_options {
+    http_tokens   = "required"
+    http_endpoint = "enabled"
+  }
+
+  root_block_device {
+    volume_size = var.root_volume_size_gb
+    volume_type = "gp3"
+  }
+
+  tags = { Name = "${var.project_name}-server" }
+}
+
+# Persistent data volume for the world save; survives instance stop/start and
+# instance-type changes so upgrades need no data migration.
+resource "aws_ebs_volume" "data" {
+  availability_zone = aws_instance.palworld.availability_zone
+  size              = var.data_volume_size_gb
+  type              = "gp3"
+  tags              = { Name = "${var.project_name}-data" }
+}
+
+resource "aws_volume_attachment" "data" {
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.data.id
+  instance_id = aws_instance.palworld.id
+}
+
+resource "aws_eip" "palworld" {
+  instance = aws_instance.palworld.id
+  domain   = "vpc"
+  tags     = { Name = "${var.project_name}-eip" }
+}
+
+# CPU alarm: sustained high CPU is a signal to scale up.
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  alarm_name          = "${var.project_name}-cpu-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "Sustained CPU >85% - consider scaling up (see README scaling guide)."
+  dimensions          = { InstanceId = aws_instance.palworld.id }
+}
+
+# Memory alarm relies on the CloudWatch agent publishing mem_used_percent
+# to the CWAgent namespace (installed via cloud-init).
+resource "aws_cloudwatch_metric_alarm" "mem_high" {
+  alarm_name          = "${var.project_name}-mem-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "mem_used_percent"
+  namespace           = "CWAgent"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 90
+  alarm_description   = "Sustained memory >90% - consider a higher-RAM instance (see README scaling guide)."
+  dimensions          = { InstanceId = aws_instance.palworld.id }
+}
