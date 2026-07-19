@@ -59,20 +59,48 @@ API Gateway (HTTP v2) ─────► Lambda (Python 3.12)
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: set ssh_ingress_cidr, discord_public_key,
-# discord_application_id, server_password, admin_password
-# optional: set discord_webhook_url for server notifications
 ```
 
-### 2. Package the Lambda dependencies
+Open `terraform.tfvars` and fill in each value. The table below explains where to
+find each one:
 
-PyNaCl is not in the Lambda runtime, so install it into `lambda/` before applying:
+| Variable | Required | Where to get it |
+|---|---|---|
+| `aws_region` | No | AWS region to deploy into. Default: `us-east-1` |
+| `instance_type` | No | EC2 instance type. Default: `m6i.xlarge` (4 vCPU / 16 GB RAM) |
+| `data_volume_size_gb` | No | Persistent world-save volume size in GB. Default: `20` |
+| `root_volume_size_gb` | No | OS root volume size in GB. Default: `30` |
+| `ssh_ingress_cidr` | **Yes** | Your public IP as a `/32`. Run: `curl -s https://checkip.amazonaws.com \| awk '{print $1"/32"}'` |
+| `discord_public_key` | **Yes** | Discord Developer Portal → your app → **General Information** → *Public Key* |
+| `discord_application_id` | **Yes** | Discord Developer Portal → your app → **General Information** → *Application ID* |
+| `discord_webhook_url` | No | Discord server → channel settings → **Integrations** → **Webhooks** → copy URL |
+| `server_password` | **Yes** | Any password — players enter this to join the game |
+| `admin_password` | **Yes** | Any password — used for RCON/admin commands in-game |
+| `server_name` | No | Name shown in the community server browser. Default: `PalsWithPals` |
+| `server_description` | No | Description shown in the community server browser |
+
+> **SSH CIDR note:** if your home IP is dynamic and changes, just re-run the
+> `curl` command, update `ssh_ingress_cidr`, and re-run `terraform apply`.
+> Terraform will update the security group rule in seconds with no server restart.
+
+> **Secrets safety:** `terraform.tfvars` is gitignored — never commit it.
+> All sensitive variables are marked `sensitive` in Terraform and will not appear
+> in plan/apply output.
+
+### 2. Build the Lambda package directory
+
+The Lambda runtime dependencies are built into a dedicated directory
+`build/lambda-package` (outside `lambda/`) so your source folder stays clean.
 
 ```bash
-pip install -r ../lambda/requirements.txt -t ../lambda
+cd ..
+./lambda/build.sh
+cd terraform
 ```
 
-(Terraform zips the `lambda/` directory into the deployment package.)
+Terraform zips `build/lambda-package` into the deployment artifact.
+Re-run `./lambda/build.sh` whenever `lambda/requirements.txt` or
+`lambda/lambda_handler.py` changes.
 
 ### 3. Apply
 

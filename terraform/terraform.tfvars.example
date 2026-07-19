@@ -19,3 +19,8 @@ discord_webhook_url    = ""
 # Game passwords.
 server_password        = "REPLACE_ME"
 admin_password         = "REPLACE_ME"
+
+# Community server listing (shown in the Palworld server browser).
+server_name            = "SengasPalsWithPals"
+server_description     = "A friendly server for Sengas pals!"
+

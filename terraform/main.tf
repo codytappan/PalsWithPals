@@ -29,6 +29,8 @@ locals {
     server_password         = var.server_password
     admin_password          = var.admin_password
     discord_webhook_url     = var.discord_webhook_url
+    server_name             = var.server_name
+    server_description      = var.server_description
     player_count_param_name = var.player_count_param_name
   })
 }

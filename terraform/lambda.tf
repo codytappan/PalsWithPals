@@ -1,11 +1,10 @@
 # Lambda function + HTTP API Gateway (v2) for Discord interactions.
 
-# Package the Lambda source into a zip. NOTE: PyNaCl must be included in the
-# deployment package. Either add a build step that pip-installs into lambda/
-# before apply, or attach a layer. This archive_file zips the lambda/ dir.
+# Package the Lambda source from a dedicated build directory.
+# Build it via ./lambda/build.sh before terraform plan/apply.
 data "archive_file" "lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/../lambda"
+  source_dir  = "${path.module}/../build/lambda-package"
   output_path = "${path.module}/build/lambda.zip"
 }
 

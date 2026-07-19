@@ -3,7 +3,7 @@
 # the CloudWatch agent; formats/mounts the persistent data volume; writes the
 # compose file and idle watcher; and enables the container and cron on boot.
 #
-# Terraform renders the ${...} placeholders at apply time.
+# Terraform renders the $${...} placeholders at apply time.
 
 package_update: true
 packages:
@@ -21,6 +21,8 @@ write_files:
       SERVER_PASSWORD=${server_password}
       ADMIN_PASSWORD=${admin_password}
       DISCORD_WEBHOOK_URL=${discord_webhook_url}
+      SERVER_NAME=${server_name}
+      SERVER_DESCRIPTION=${server_description}
       TZ=UTC
 
   # Config consumed by the idle watcher.
