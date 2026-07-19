@@ -1,8 +1,8 @@
 # Useful outputs after apply.
 
-output "elastic_ip" {
-  description = "Stable public IP to connect to in-game (port 8211)."
-  value       = aws_eip.palworld.public_ip
+output "public_ip" {
+  description = "Public IP after apply. After later stop/start cycles, use /palworld-status for the current IP."
+  value       = aws_instance.palworld.public_ip
 }
 
 output "instance_id" {

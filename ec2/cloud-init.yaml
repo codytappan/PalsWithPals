@@ -46,6 +46,28 @@ write_files:
     content: |
       ${idle_shutdown_sh_b64}
 
+  - path: /opt/palworld/start-palworld.sh
+    permissions: "0755"
+    encoding: b64
+    content: |
+      ${start_palworld_sh_b64}
+
+  - path: /etc/systemd/system/palworld-startup.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Refresh Palworld public IP and start container
+      Wants=network-online.target docker.service
+      After=network-online.target docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/palworld/start-palworld.sh
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+
 runcmd:
   # --- Docker install ---
   - install -m 0755 -d /etc/apt/keyrings
@@ -76,19 +98,11 @@ runcmd:
 
   # --- Ensure watcher is executable ---
   - install -m 0755 /opt/palworld/idle-shutdown.sh /opt/palworld/idle-shutdown.sh 2>/dev/null || true
+  - install -m 0755 /opt/palworld/start-palworld.sh /opt/palworld/start-palworld.sh 2>/dev/null || true
 
-  # --- Start the container ---
-  - |
-    TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300" || true)
-    PUBLIC_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 || true)
-    if [ -n "$PUBLIC_IP" ]; then
-      if grep -q '^PUBLIC_IP=' /opt/palworld/.env; then
-        sed -i "s/^PUBLIC_IP=.*/PUBLIC_IP=$PUBLIC_IP/" /opt/palworld/.env
-      else
-        echo "PUBLIC_IP=$PUBLIC_IP" >> /opt/palworld/.env
-      fi
-    fi
-  - cd /opt/palworld && docker compose up -d
+  # --- Start the container and refresh PUBLIC_IP on every boot ---
+  - systemctl daemon-reload
+  - systemctl enable --now palworld-startup.service
 
   # --- Install the idle-watcher cron (every 5 minutes) ---
   - echo "*/5 * * * * root /opt/palworld/idle-shutdown.sh >> /var/log/palworld-idle.log 2>&1" > /etc/cron.d/palworld-idle
