@@ -3,6 +3,7 @@ set -euo pipefail
 
 ENV_FILE=/opt/palworld/.env
 COMPOSE_DIR=/opt/palworld
+COUNTER_FILE=/opt/palworld/empty_count
 
 # Wait briefly for Docker on boot.
 for _ in $(seq 1 30); do
@@ -25,6 +26,8 @@ if [ -n "$PUBLIC_IP" ] && [ -f "$ENV_FILE" ]; then
   fi
 fi
 
+# Fresh boot should always start a new inactivity window.
+echo 0 > "$COUNTER_FILE"
+
 cd "$COMPOSE_DIR"
 docker compose up -d --force-recreate
-

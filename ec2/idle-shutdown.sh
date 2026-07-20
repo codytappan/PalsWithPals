@@ -4,8 +4,8 @@
 # On each run it:
 #   1. discovers this instance's ID from IMDSv2,
 #   2. counts players via the container's REST CLI,
-#   3. caches the count to a local file AND an SSM Parameter (so the Lambda
-#      /palworld-status can answer instantly),
+#   3. caches the count to a local file AND SSM Parameters (so the Lambda
+#      slash commands can answer quickly),
 #   4. after EMPTY_LIMIT consecutive empty checks, saves the world and stops
 #      this instance.
 set -euo pipefail
@@ -21,21 +21,43 @@ TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
 INSTANCE_ID=$(curl -sS -H "X-aws-ec2-metadata-token: $TOKEN" \
   http://169.254.169.254/latest/meta-data/instance-id)
 
+QUERY_OK=0
+COUNT=0
+
 # Count players from rest-cli JSON output: {"players":[...]}.
 if PLAYERS_RAW=$(docker exec palworld-server rest-cli players 2>/dev/null); then
-  COUNT=$(python3 - <<'PY' "$PLAYERS_RAW"
+  PARSED_COUNT=$(python3 - <<'PY' "$PLAYERS_RAW"
 import json
 import sys
 try:
     payload = json.loads(sys.argv[1])
     players = payload.get("players", [])
-    print(len(players) if isinstance(players, list) else 0)
+    if isinstance(players, list):
+        print(len(players))
+    else:
+        raise ValueError("players is not a list")
 except Exception:
-    print(0)
+    sys.exit(1)
 PY
-)
-else
-  COUNT=0
+  ) || true
+
+  if [ -n "$PARSED_COUNT" ]; then
+    QUERY_OK=1
+    COUNT=$PARSED_COUNT
+  fi
+fi
+
+# Cache persistent data usage percent for health reporting.
+DATA_USAGE_PCT=$(df -P /opt/palworld/data | awk 'NR==2 {gsub(/%/, "", $5); print $5}' || true)
+if [ -n "$DATA_USAGE_PCT" ]; then
+  aws ssm put-parameter --region "$AWS_REGION" \
+    --name "$DATA_USAGE_PARAM_NAME" --type String \
+    --value "$DATA_USAGE_PCT" --overwrite >/dev/null 2>&1 || true
+fi
+
+if [ "$QUERY_OK" -ne 1 ]; then
+  echo "$(date -u +%FT%TZ) players=unknown reason=rest_cli_unavailable"
+  exit 0
 fi
 
 # Cache the count locally and in SSM.
