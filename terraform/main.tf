@@ -150,7 +150,6 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   alarm_description   = "Sustained CPU >85% - consider scaling up (see README scaling guide)."
   dimensions          = { InstanceId = aws_instance.palworld.id }
   alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
-  ok_actions          = [aws_sns_topic.alarm_notifications.arn]
 }
 
 # Memory alarm relies on the CloudWatch agent publishing mem_used_percent
@@ -167,5 +166,4 @@ resource "aws_cloudwatch_metric_alarm" "mem_high" {
   alarm_description   = "Sustained memory >90% - consider a higher-RAM instance (see README scaling guide)."
   dimensions          = { InstanceId = aws_instance.palworld.id }
   alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
-  ok_actions          = [aws_sns_topic.alarm_notifications.arn]
 }
