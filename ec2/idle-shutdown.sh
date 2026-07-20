@@ -10,7 +10,7 @@
 #      this instance.
 set -euo pipefail
 
-source /opt/palworld/idle.env  # AWS_REGION, PLAYER_COUNT_PARAM_NAME, EMPTY_LIMIT
+source /opt/palworld/idle.env  # AWS_REGION, PLAYER_COUNT_PARAM_NAME, DATA_USAGE_PARAM_NAME, EMPTY_LIMIT
 
 COUNTER_FILE=/opt/palworld/empty_count
 COUNT_FILE=/opt/palworld/player_count
@@ -43,6 +43,14 @@ echo "$COUNT" > "$COUNT_FILE"
 aws ssm put-parameter --region "$AWS_REGION" \
   --name "$PLAYER_COUNT_PARAM_NAME" --type String \
   --value "$COUNT" --overwrite >/dev/null 2>&1 || true
+
+# Cache persistent data usage percent for health reporting.
+DATA_USAGE_PCT=$(df -P /opt/palworld/data | awk 'NR==2 {gsub(/%/, "", $5); print $5}' || true)
+if [ -n "$DATA_USAGE_PCT" ]; then
+  aws ssm put-parameter --region "$AWS_REGION" \
+    --name "$DATA_USAGE_PARAM_NAME" --type String \
+    --value "$DATA_USAGE_PCT" --overwrite >/dev/null 2>&1 || true
+fi
 
 # Track consecutive empty checks.
 EMPTY=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)

@@ -22,10 +22,41 @@ resource "aws_lambda_function" "interactions" {
       DISCORD_PUBLIC_KEY      = var.discord_public_key
       INSTANCE_ID             = aws_instance.palworld.id
       PLAYER_COUNT_PARAM_NAME = var.player_count_param_name
+      DATA_USAGE_PARAM_NAME   = var.data_usage_param_name
       AWS_REGION_NAME         = var.aws_region
       DISCORD_WEBHOOK_URL     = var.discord_webhook_url
     }
   }
+}
+
+resource "aws_lambda_function" "alarm_notifier" {
+  function_name    = "${var.project_name}-alarm-notifier"
+  role             = aws_iam_role.alarm_notifier.arn
+  handler          = "alarm_notifier.handler"
+  runtime          = "python3.12"
+  timeout          = 10
+  filename         = data.archive_file.lambda.output_path
+  source_code_hash = data.archive_file.lambda.output_base64sha256
+
+  environment {
+    variables = {
+      DISCORD_WEBHOOK_URL = var.discord_webhook_url
+    }
+  }
+}
+
+resource "aws_lambda_permission" "sns_alarm_notifier" {
+  statement_id  = "AllowSNSInvokeAlarmNotifier"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.alarm_notifier.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.alarm_notifications.arn
+}
+
+resource "aws_sns_topic_subscription" "alarm_notifier_lambda" {
+  topic_arn = aws_sns_topic.alarm_notifications.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.alarm_notifier.arn
 }
 
 resource "aws_apigatewayv2_api" "http" {

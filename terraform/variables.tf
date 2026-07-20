@@ -85,3 +85,10 @@ variable "player_count_param_name" {
   type        = string
   default     = "/palworld/player_count"
 }
+
+variable "data_usage_param_name" {
+  description = "SSM Parameter Store name used to cache persistent data volume usage percent."
+  type        = string
+  default     = "/palworld/data_usage_percent"
+}
+
