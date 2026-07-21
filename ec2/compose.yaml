@@ -29,6 +29,9 @@ services:
       PLAYER_STOMACH_DECREASE_RATE: "0.500000" # slower hunger depletion
       EQUIPMENT_DURABILITY_DAMAGE_RATE: "0.500000" # slower equipment decay
       BUILD_OBJECT_DETERIORATION_DAMAGE_RATE: "0.100000" # slower building decay
+      # --- Optional features ---
+      ALLOW_GLOBAL_PALBOX_IMPORT: "true"
+      ALLOW_GLOBAL_PALBOX_EXPORT: "true"
       REST_API_ENABLED: "true"
       REST_API_PORT: "8212"
       ENABLE_PLAYER_LOGGING: "true"
