@@ -76,6 +76,13 @@ resource "aws_security_group" "palworld" {
   tags = { Name = "${var.project_name}-sg" }
 }
 
+# Optional key pair for SSH access. Leave ssh_public_key empty to rely on SSM only.
+resource "aws_key_pair" "operator" {
+  count      = trimspace(var.ssh_public_key) == "" ? 0 : 1
+  key_name   = "${var.project_name}-operator"
+  public_key = trimspace(var.ssh_public_key)
+}
+
 resource "aws_instance" "palworld" {
   ami                         = data.aws_ssm_parameter.ubuntu.value
   instance_type               = var.instance_type
@@ -85,6 +92,7 @@ resource "aws_instance" "palworld" {
   iam_instance_profile        = aws_iam_instance_profile.ec2.name
   user_data                   = local.user_data
   user_data_replace_on_change = true
+  key_name                    = trimspace(var.ssh_public_key) == "" ? null : aws_key_pair.operator[0].key_name
 
   # Use spot pricing (~44% cheaper). World save is on persistent EBS so
   # interruptions are safe — players get kicked and can reconnect after restart.

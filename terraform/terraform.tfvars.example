@@ -13,6 +13,10 @@ data_usage_param_name   = "/palworld/data_usage_percent"
 # Restrict SSH to your own IP address.
 ssh_ingress_cidr       = "1.2.3.4/32"
 
+# Optional: paste your local OpenSSH public key to enable SSH login.
+# Example: cat ~/.ssh/id_ed25519.pub
+ssh_public_key         = ""
+
 # From the Discord Developer Portal (General Information tab).
 discord_public_key     = "REPLACE_ME"
 discord_application_id = "REPLACE_ME"

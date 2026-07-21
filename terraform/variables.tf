@@ -31,6 +31,12 @@ variable "ssh_ingress_cidr" {
   type        = string
 }
 
+variable "ssh_public_key" {
+  description = "Optional OpenSSH public key content (from ~/.ssh/*.pub). When set, Terraform creates an EC2 key pair and enables SSH key login."
+  type        = string
+  default     = ""
+}
+
 variable "discord_public_key" {
   description = "Discord application public key, used by the Lambda to verify request signatures."
   type        = string

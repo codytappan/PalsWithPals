@@ -74,6 +74,7 @@ find each one:
 | `player_count_param_name` | No | SSM parameter for cached online player count. Default: `/palworld/player_count` |
 | `data_usage_param_name` | No | SSM parameter for cached persistent data usage %. Default: `/palworld/data_usage_percent` |
 | `ssh_ingress_cidr` | **Yes** | Your public IP as a `/32`. Run: `curl -s https://checkip.amazonaws.com \| awk '{print $1"/32"}'` |
+| `ssh_public_key` | No | Paste your local OpenSSH public key (e.g. `cat ~/.ssh/id_ed25519.pub`) to enable SSH key login |
 | `discord_public_key` | **Yes** | Discord Developer Portal → your app → **General Information** → *Public Key* |
 | `discord_application_id` | **Yes** | Discord Developer Portal → your app → **General Information** → *Application ID* |
 | `discord_webhook_url` | No | Discord server → channel settings → **Integrations** → **Webhooks** → copy URL |
@@ -85,6 +86,8 @@ find each one:
 > **SSH CIDR note:** if your home IP is dynamic and changes, just re-run the
 > `curl` command, update `ssh_ingress_cidr`, and re-run `terraform apply`.
 > Terraform will update the security group rule in seconds with no server restart.
+
+> **SSH key note:** if `ssh_public_key` is left empty, SSH key login is disabled and you should use AWS Systems Manager Session Manager shell access instead.
 
 > **Secrets safety:** `terraform.tfvars` is gitignored — never commit it.
 > All sensitive variables are marked `sensitive` in Terraform and will not appear
@@ -177,7 +180,7 @@ user-data), then doing a one-time container restart on the server.
 
    ```bash
    # Use the IP reported by /palworld-status
-   ssh ubuntu@<PUBLIC_IP>
+   ssh -i ~/.ssh/<YOUR_PRIVATE_KEY_FILE> ubuntu@<PUBLIC_IP>
    cd /opt/palworld
 
    # Save the world first
