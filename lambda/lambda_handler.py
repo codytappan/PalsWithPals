@@ -119,7 +119,18 @@ def _start() -> str:
     state = _instance_state()
     if state == "running":
         return "Server is already running."
-    ec2.start_instances(InstanceIds=[INSTANCE_ID])
+    try:
+        ec2.start_instances(InstanceIds=[INSTANCE_ID])
+    except ec2.exceptions.ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "")
+        if code == "UnsupportedOperation":
+            return (
+                "⚠️ Cannot start the server right now. It was stopped by a **spot interruption** "
+                "and AWS does not allow manual restarts in this state. "
+                "The server will restart automatically once spot capacity is available, "
+                "or an admin can switch to an on-demand instance to avoid future interruptions."
+            )
+        raise
     _notify_webhook(":green_circle: Palworld server is **starting**.")
     return "Starting the Palworld server. Give it a couple of minutes to boot and update."
 

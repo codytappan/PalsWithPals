@@ -94,17 +94,7 @@ resource "aws_instance" "palworld" {
   user_data_replace_on_change = true
   key_name                    = trimspace(var.ssh_public_key) == "" ? null : aws_key_pair.operator[0].key_name
 
-  # Use spot pricing (~44% cheaper). World save is on persistent EBS so
-  # interruptions are safe — players get kicked and can reconnect after restart.
-  instance_market_options {
-    market_type = "spot"
-
-    spot_options {
-      spot_instance_type             = "persistent"
-      instance_interruption_behavior = "stop"
-    }
-  }
-
+  # On-demand instance — avoids spot interruptions at the cost of higher hourly price.
   # Enforce IMDSv2.
   metadata_options {
     http_tokens   = "required"
