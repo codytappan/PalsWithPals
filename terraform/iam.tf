@@ -3,9 +3,10 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  instance_arn   = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.palworld.id}"
-  param_arn      = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.player_count_param_name}"
-  data_param_arn = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.data_usage_param_name}"
+  instance_arn            = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.palworld.id}"
+  param_arn               = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.player_count_param_name}"
+  data_param_arn          = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.data_usage_param_name}"
+  interactions_lambda_arn = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-interactions"
 }
 
 # ---------------------------------------------------------------------------
@@ -97,6 +98,11 @@ data "aws_iam_policy_document" "lambda_inline" {
   statement {
     actions   = ["ssm:GetParameter"]
     resources = [local.param_arn, local.data_param_arn]
+  }
+
+  statement {
+    actions   = ["lambda:InvokeFunction"]
+    resources = [local.interactions_lambda_arn]
   }
 
   statement {

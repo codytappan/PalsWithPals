@@ -21,13 +21,15 @@ Discord slash command
 API Gateway (HTTP v2) ─────► Lambda (Python 3.12)
                                • verifies Ed25519 signature (Discord public key)
                                • PING (type 1) -> PONG
+                               • deferred slash replies to avoid Discord 3s timeout
                                • /palworld-start  -> ec2:StartInstances
                                • /palworld-stop   -> SSM save, then ec2:StopInstances
+                               • /palworld-update -> SSM docker compose pull + recreate
                                • /palworld-status -> ec2:DescribeInstances + public IP + cached count
                                • /palworld-health -> status + players + persistent data usage
         ┌──────────────────────────────────────────────────────────┐
         │  EC2 game VM (Ubuntu, m6i.xlarge default)                 │
-        │   • public IP auto-assigned on start                      │
+        │   • stable Elastic IP address                             │
         │   • Docker + compose: palworld-server-docker:latest       │
         │   • REST API 8212 bound to localhost only                 │
         │   • persistent EBS data volume -> /palworld world save     │
@@ -117,7 +119,7 @@ terraform apply
 
 Note the outputs:
 
-- `public_ip` — the server's public IP right after `terraform apply`. After later stop/start cycles, use `/palworld-status` for the current IP.
+- `public_ip` — the server's stable Elastic IP (unchanged across stop/start).
 - `instance_id` — the game server instance.
 - `interactions_endpoint_url` — paste into Discord next.
 
@@ -133,7 +135,7 @@ Note the outputs:
    DISCORD_APPLICATION_ID=... DISCORD_BOT_TOKEN=... python3 register_commands.py
    ```
 
-3. Invite the app to your server and use `/palworld-start`, `/palworld-stop`, `/palworld-status`, `/palworld-health`.
+3. Invite the app to your server and use `/palworld-start`, `/palworld-stop`, `/palworld-update`, `/palworld-status`, `/palworld-health`.
 
 ### 5. Connect in-game
 
@@ -144,7 +146,7 @@ connect to the reported `PUBLIC_IP:8211` and enter the server password.
 
 ## Operations
 
-- **Start / stop / status/health:** use the Discord slash commands, or the AWS console/CLI. `/palworld-status` includes the server's current public IP when it is running, and `/palworld-health` adds persistent data usage so you can judge when to resize storage.
+- **Start / stop / update / status / health:** use the Discord slash commands, or the AWS console/CLI. `/palworld-update` manually pulls the latest container image and recreates the service. `/palworld-status` includes the current public IP when running, and `/palworld-health` adds persistent data usage so you can judge when to resize storage.
 - **Discord notifications:** when `discord_webhook_url` is set, Discord receives server lifecycle posts (start/stop/idle stop) and CloudWatch alarm transitions (ALARM/OK for CPU/memory alarms).
 - **Auto-shutdown:** the cron idle-watcher (`ec2/idle-shutdown.sh`) polls player count every
   5 minutes and, after `EMPTY_LIMIT` consecutive empty checks (default 6 = 30 min), runs
@@ -153,6 +155,7 @@ connect to the reported `PUBLIC_IP:8211` and enter the server password.
   persistent data volume at `/opt/palworld/data/palworld`. Restore by replacing the save files
   from a backup while the container is stopped, then `docker compose up -d`.
 - **Manual save:** `docker exec palworld-server rest-cli save`.
+- **Manual update from host shell:** `cd /opt/palworld && docker compose pull palworld && docker compose up -d --no-deps --force-recreate palworld`.
 
 The world is **always saved before the instance stops** — both in the idle watcher and in the
 `/palworld-stop` command.

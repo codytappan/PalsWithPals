@@ -1,8 +1,8 @@
 # Useful outputs after apply.
 
 output "public_ip" {
-  description = "Public IP after apply. After later stop/start cycles, use /palworld-status for the current IP."
-  value       = aws_instance.palworld.public_ip
+  description = "Stable Elastic IP for the game server (persists across instance stop/start)."
+  value       = aws_eip.palworld.public_ip
 }
 
 output "instance_id" {
