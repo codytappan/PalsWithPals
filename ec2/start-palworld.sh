@@ -30,4 +30,4 @@ fi
 echo 0 > "$COUNTER_FILE"
 
 cd "$COMPOSE_DIR"
-docker compose up -d --force-recreate
+docker compose up -d

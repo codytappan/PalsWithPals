@@ -22,6 +22,11 @@ URL = f"https://discord.com/api/v10/applications/{APP_ID}/commands"
 COMMANDS = [
     {"name": "palworld-start", "description": "Start the Palworld server", "type": 1},
     {"name": "palworld-stop", "description": "Save and stop the Palworld server", "type": 1},
+    {
+        "name": "palworld-update",
+        "description": "Manually update and recreate the Palworld server container",
+        "type": 1,
+    },
     {"name": "palworld-status", "description": "Show server state and player count", "type": 1},
     {
         "name": "palworld-health",

@@ -87,7 +87,7 @@ resource "aws_instance" "palworld" {
   ami                         = data.aws_ssm_parameter.ubuntu.value
   instance_type               = var.instance_type
   subnet_id                   = data.aws_subnet.selected.id
-  associate_public_ip_address = true
+  associate_public_ip_address = false
   vpc_security_group_ids      = [aws_security_group.palworld.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2.name
   user_data                   = local.user_data
@@ -107,6 +107,16 @@ resource "aws_instance" "palworld" {
   }
 
   tags = { Name = "${var.project_name}-server" }
+}
+
+resource "aws_eip" "palworld" {
+  domain = "vpc"
+  tags   = { Name = "${var.project_name}-eip" }
+}
+
+resource "aws_eip_association" "palworld" {
+  allocation_id = aws_eip.palworld.id
+  instance_id   = aws_instance.palworld.id
 }
 
 # Persistent data volume for the world save; survives instance stop/start and

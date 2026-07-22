@@ -20,6 +20,7 @@ resource "aws_lambda_function" "interactions" {
   environment {
     variables = {
       DISCORD_PUBLIC_KEY      = var.discord_public_key
+      DISCORD_APPLICATION_ID  = var.discord_application_id
       INSTANCE_ID             = aws_instance.palworld.id
       PLAYER_COUNT_PARAM_NAME = var.player_count_param_name
       DATA_USAGE_PARAM_NAME   = var.data_usage_param_name

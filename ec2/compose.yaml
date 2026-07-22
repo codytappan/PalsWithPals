@@ -36,7 +36,7 @@ services:
       REST_API_PORT: "8212"
       ENABLE_PLAYER_LOGGING: "true"
       RCON_ENABLED: "true"
-      UPDATE_ON_BOOT: "true"
+      UPDATE_ON_BOOT: "false"
       BACKUP_ENABLED: "true"
       AUTO_PAUSE_ENABLED: "true"
       AUTO_PAUSE_TIMEOUT_EST: "180"
