@@ -23,12 +23,13 @@ services:
       SERVER_NAME: "${SERVER_NAME}"
       SERVER_DESCRIPTION: "${SERVER_DESCRIPTION}"
       PUBLIC_PORT: "8211"
-      # --- Difficulty / family-friendly tuning ---
+      # --- Difficulty tuning ---
       DEATH_PENALTY: "None"           # no item loss on death
       FALL_DAMAGE_RATE: "0.500000"    # disable fall damage entirely
       PLAYER_STOMACH_DECREASE_RATE: "0.500000" # slower hunger depletion
       EQUIPMENT_DURABILITY_DAMAGE_RATE: "0.500000" # slower equipment decay
-      BUILD_OBJECT_DETERIORATION_DAMAGE_RATE: "0.100000" # slower building decay
+      BUILD_OBJECT_DETERIORATION_DAMAGE_RATE: "0.000000" # slower building decay
+      EXP_RATE: "0.700000" # slightly reduced experience gain
       # --- Optional features ---
       ALLOW_GLOBAL_PALBOX_IMPORT: "true"
       ALLOW_GLOBAL_PALBOX_EXPORT: "true"
